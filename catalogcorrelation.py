@@ -12,56 +12,39 @@ import pprocess # paralel python library
 import math     # math operations
 import numpy as np # numerical recipes for arrays
 import pyfits as fits # FITS manipylation module
+import astropy.coordinates as coords
+import astropy.units as u
 #from astropy.io import fits    #FITS manipulation module
 # transition to astropy in progress, problems with NULL and NaN values
 
 
 #------------------------------------------------------------------------------
 #This function make the search in cat2
-def compare(start, nrows,rows, tol, ra1, ra2, de1, de2,rows1):
+def compare(start, nrows, rows, tol, ra1, ra2, de1, de2,rows1):
     found = 0
     result = np.array([])
     if start+nrows > rows:
         nrows = rows - start
-
     #to search the whole cat1 use: 'in range(rows1)'
     # or 'in range ([start line], [end line])'
-    for i in range(rows1):
+    for i in xrange(rows1):
         for j in range(start,nrows+start):
-            #Angular distance between 2 objects
-            #General Formula
-            degtorad = math.pi/180.0
-            print(de1[i]*degtorad, math.radians(de1[i]))
-            tmp1 = math.sin(math.radians(de1[i]))*math.sin(math.radians(de2[j]))
-            tmp2 = math.cos(math.radians(de1[i]))*math.cos(math.radians(de2[j]))
-            tmp3 = math.cos(math.radians(ra1[i] - ra2[j]))
-            tmp = tmp1 + tmp2*tmp3
-            dist1 = math.degrees(math.acos(tmp))*3600.0
-            #More precise formula to small distances
-            if (abs(dist1) < 600.0):
-                x = (0.5*(de1[i]+de2[j]))
-                tmp4 = (ra1[i]-ra2[j])*math.cos(math.degrees(x))
-                dist2 = math.sqrt(tmp4**2 + (de1[i]-de2[j])**2)*3600.0
-            elif (abs((180.0*3600.0)-dist1) < 600.0):
-                x = (0.5*(de1[i]+de2[j]))
-                tmp4 = (ra1[i]-ra2[j])*math.cos(math.degrees(x))
-                dist2 = math.sqrt(tmp4**2 + (de1[i]-de2[j])**2)*3600.0
-            else:
-                dist2 = dist1
-            #dist2 = dist1
-            #print(dist1, dist2)
-            if dist2 < tol:
+            c1 = coords.SkyCoord(ra1[i], de1[i], unit=('deg', 'deg'), frame='icrs')
+            c2 = coords.SkyCoord(ra2[j], de2[j], unit=('deg', 'deg'), frame='icrs')
+            sep = c1.separation(c2)
+            dist = sep.arcsec
+            if dist < tol:
                 found = found+1
                 #vector results keep: found, i,j and dist
                 a = np.array(found)
                 a = np.append(a,i)
                 a = np.append(a,j)
-                a = np.append(a,dist2)
+                a = np.append(a,dist)
                 result = np.append(result, a)
-        if found == 0:
-            return 0
-        else:
-            return result
+    if found == 0:
+        return 0
+    else:
+        return result
 
 cat1name = str(input('Type the name of your smallest catalogue with the extension (.fits or .fit): '))
 ra1col = int(input('Type the collumn with the Right Assencion in the catalogue: '))
@@ -84,10 +67,12 @@ de2 = cat2[1].data.field(de2col)        #the number of the column with the Decli
 #ATENTION !!!  the Follow block will define the output file format
 #--------------------------------
 t1 = cat1[1].columns    #wich columns of cat1 you want in your output file (use .columns[start:end] to define)
+# change column names to avoid duplicates
 for i in xrange(len(t1)):
     t1[i].name += '1'
 t1 = t1[0:2]
 t2 = cat2[1].columns    #wich columns of cat2 you want in your output file (use .columns[start:end] to define)
+# change column names to avoid duplicates
 for i in xrange(len(t2)):
     t2[i].name += '2'
 t2 = t2[0:2]
